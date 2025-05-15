@@ -1,23 +1,67 @@
-<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
   <title>Game Dikejar Hantu</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <style>
     html, body {
       margin: 0;
       padding: 0;
+      background: #111;
       overflow: hidden;
-      background: black;
     }
     canvas {
       display: block;
-      width: 100vw;
-      height: 56.25vw; /* 16:9 ratio */
-      max-height: 100vh;
-      max-width: 177.78vh;
+      margin: auto;
       background: #222;
+    }
+    #joystick {
+      position: absolute;
+      bottom: 100px;
+      left: 30px;
+      width: 100px;
+      height: 100px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 50%;
+      touch-action: none;
+      z-index: 2;
+    }
+    #stick {
+      position: absolute;
+      top: 25px;
+      left: 25px;
+      width: 50px;
+      height: 50px;
+      background: rgba(255,255,255,0.4);
+      border-radius: 50%;
+    }
+    #fireBtn {
+      position: absolute;
+      bottom: 110px;
+      left: 150px;
+      width: 60px;
+      height: 60px;
+      background: red;
+      border-radius: 50%;
+      z-index: 2;
+      border: 2px solid white;
+    }
+    #ui {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      color: white;
+      font-family: sans-serif;
+      font-size: 14px;
+    }
+    .bar {
+      width: 100px;
+      height: 10px;
+      background: #444;
+      margin-bottom: 5px;
+    }
+    .fill {
+      height: 10px;
+      background: lime;
     }
     #startMsg {
       position: absolute;
@@ -25,124 +69,187 @@
       left: 50%;
       transform: translate(-50%, -50%);
       color: white;
-      font-size: 64px;
+      font-size: 24px;
       font-family: sans-serif;
-      opacity: 1;
-      transition: opacity 0.5s ease-in-out;
-      z-index: 10;
     }
   </style>
 </head>
 <body>
-  <canvas id="gameCanvas" width="960" height="540"></canvas>
-  <div id="startMsg">3</div>
-  <script>
+  <canvas id="gameCanvas" width="800" height="600"></canvas>
+  <div id="joystick"><div id="stick"></div></div>
+  <div id="fireBtn"></div>
+  <div id="ui">
+    <div>Hantu HP</div>
+    <div class="bar"><div id="ghostHp" class="fill" style="width: 100%;"></div></div>
+    <div>Power</div>
+    <div class="bar"><div id="powerBar" class="fill" style="width: 10%; background: cyan;"></div></div>
+  </div>
+  <div id="startMsg">Game mulai dalam 3,2,1.</div>  <script>
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
 
-    const player = { x: 0, y: 0, size: 40, speed: 2, power: 10 };
-    const ghost = { x: 80, y: 80, size: 40, speed: 1.2, hp: 50 };
-    const keys = {};
+    const player = { x: canvas.width / 2 - 20, y: canvas.height / 2 - 20, size: 40, speed: 2, power: 10 };
+    const ghost = { x: canvas.width / 2 + 50, y: canvas.height / 2 - 20, size: 40, speed: 1.2, hp: 50, state: "chase", hitTimer: 0 };
 
-    const obstacles = [
-      { x: 200, y: 100, width: 60, height: 200 },
-      { x: 400, y: 300, width: 60, height: 200 },
-      { x: 700, y: 50, width: 60, height: 200 },
-    ];
+    const obstacles = Array.from({length: 15}, () => ({
+      x: Math.random() * 750,
+      y: Math.random() * 550,
+      width: 50,
+      height: 50
+    }));
 
-    document.addEventListener("keydown", e => keys[e.key] = true);
-    document.addEventListener("keyup", e => keys[e.key] = false);
+    const powerBox = { x: 200, y: 300, size: 30 };
+    const velocity = { x: 0, y: 0 };
+    let bullets = [];
 
-    function rectsCollide(a, b) {
-      return (
-        a.x < b.x + b.width &&
-        a.x + a.size > b.x &&
-        a.y < b.y + b.height &&
-        a.y + a.size > b.y
+    let gameStarted = false;
+    const startMsg = document.getElementById("startMsg");
+
+    setTimeout(() => {
+      gameStarted = true;
+      startMsg.style.display = 'none';
+    }, 3000);
+
+    const playerIdle = new Image(); playerIdle.src = "https://i.imgur.com/6o5lPHr.png";
+    const playerRun = new Image(); playerRun.src = "https://i.imgur.com/X2Cw1D5.png";
+    const ghostChase = new Image(); ghostChase.src = "hantuapril1.png";
+    const ghostHit = new Image(); ghostHit.src = "https://i.imgur.com/L7x0kFZ.png";
+    const ghostAngry = new Image(); ghostAngry.src = "https://i.imgur.com/mW6NIXL.png";
+    const blockImg = new Image(); blockImg.src = "https://i.imgur.com/fKCYvJ1.png";
+    const powerBoxImg = new Image(); powerBoxImg.src = "https://i.imgur.com/3aFqFvl.png";
+
+    const joystick = document.getElementById("joystick");
+    const stick = document.getElementById("stick");
+    let dragging = false;
+    let origin = { x: 0, y: 0 };
+
+    joystick.addEventListener("touchstart", e => {
+      dragging = true;
+      const touch = e.touches[0];
+      origin.x = touch.clientX;
+      origin.y = touch.clientY;
+    });
+
+    joystick.addEventListener("touchmove", e => {
+      if (!dragging) return;
+      const touch = e.touches[0];
+      const dx = touch.clientX - origin.x;
+      const dy = touch.clientY - origin.y;
+
+      const maxDist = 40;
+      const dist = Math.min(maxDist, Math.hypot(dx, dy));
+      const angle = Math.atan2(dy, dx);
+
+      stick.style.left = 25 + dist * Math.cos(angle) + "px";
+      stick.style.top = 25 + dist * Math.sin(angle) + "px";
+
+      velocity.x = Math.cos(angle) * (dist / maxDist);
+      velocity.y = Math.sin(angle) * (dist / maxDist);
+    });
+
+    joystick.addEventListener("touchend", () => {
+      dragging = false;
+      stick.style.left = "25px";
+      stick.style.top = "25px";
+      velocity.x = 0;
+      velocity.y = 0;
+    });
+
+    document.getElementById("fireBtn").addEventListener("click", () => {
+      if (player.power >= 10) {
+        bullets.push({ x: player.x + 20, y: player.y + 20, dx: 3 * velocity.x, dy: 3 * velocity.y });
+        player.power -= 10;
+        document.getElementById("powerBar").style.width = player.power + "%";
+      }
+    });
+
+    function update() {
+      if (!gameStarted) return;
+
+      let nextX = player.x + velocity.x * player.speed;
+      let nextY = player.y + velocity.y * player.speed;
+
+      let blocked = obstacles.some(ob =>
+        nextX < ob.x + ob.width && nextX + player.size > ob.x &&
+        nextY < ob.y + ob.height && nextY + player.size > ob.y
       );
-    }
 
-    function movePlayer() {
-      let dx = 0, dy = 0;
-      if (keys["ArrowUp"] || keys["w"]) dy -= player.speed;
-      if (keys["ArrowDown"] || keys["s"]) dy += player.speed;
-      if (keys["ArrowLeft"] || keys["a"]) dx -= player.speed;
-      if (keys["ArrowRight"] || keys["d"]) dx += player.speed;
-
-      const nextX = player.x + dx;
-      const nextY = player.y + dy;
-
-      const future = { x: nextX, y: nextY, size: player.size };
-      const blocked = obstacles.some(ob => rectsCollide(future, ob));
       if (!blocked) {
         player.x = nextX;
         player.y = nextY;
       }
-    }
 
-    function moveGhost() {
-      const dx = player.x - ghost.x;
-      const dy = player.y - ghost.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist > 1) {
-        ghost.x += (dx / dist) * ghost.speed;
-        ghost.y += (dy / dist) * ghost.speed;
+      if (ghost.hitTimer > 0) {
+        ghost.hitTimer--;
+        ghost.state = "hit";
+        if (ghost.hitTimer === 0) ghost.state = "angry";
+        return;
+      }
+
+      let dx = player.x - ghost.x;
+      let dy = player.y - ghost.y;
+      let dist = Math.hypot(dx, dy);
+      let nextGX = ghost.x + (dx / dist) * ghost.speed;
+      let nextGY = ghost.y + (dy / dist) * ghost.speed;
+
+      ghost.x = nextGX;
+      ghost.y = nextGY;
+
+      if (Math.abs(player.x - ghost.x) < 30 && Math.abs(player.y - ghost.y) < 30) {
+        alert("Kena hantu!");
+        location.reload();
+      }
+
+      bullets.forEach((b, i) => {
+        b.x += b.dx;
+        b.y += b.dy;
+        if (b.x > ghost.x && b.x < ghost.x + ghost.size &&
+            b.y > ghost.y && b.y < ghost.y + ghost.size) {
+          ghost.hp -= 10;
+          document.getElementById("ghostHp").style.width = ghost.hp + "%";
+          bullets.splice(i, 1);
+          ghost.hitTimer = 60;
+        }
+      });
+
+      if (Math.abs(player.x - powerBox.x) < 30 && Math.abs(player.y - powerBox.y) < 30) {
+        if (player.power < 100) {
+          player.power += 10;
+          document.getElementById("powerBar").style.width = player.power + "%";
+          powerBox.x = Math.random() * 700;
+          powerBox.y = Math.random() * 500;
+        }
       }
     }
 
-    function drawPlayer() {
-      ctx.fillStyle = "cyan";
-      ctx.fillRect(player.x, player.y, player.size, player.size);
-    }
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    function drawGhost() {
-      ctx.fillStyle = "red";
-      ctx.fillRect(ghost.x, ghost.y, ghost.size, ghost.size);
-    }
+      ctx.drawImage(powerBoxImg, powerBox.x, powerBox.y, 30, 30);
+      obstacles.forEach(ob => ctx.drawImage(blockImg, ob.x, ob.y, ob.width, ob.height));
 
-    function drawObstacles() {
-      ctx.fillStyle = "#555";
-      obstacles.forEach(ob => {
-        ctx.fillRect(ob.x, ob.y, ob.width, ob.height);
+      const playerImg = (velocity.x === 0 && velocity.y === 0) ? playerIdle : playerRun;
+      ctx.drawImage(playerImg, player.x, player.y, player.size, player.size);
+
+      let ghostImg = ghostChase;
+      if (ghost.state === "hit") ghostImg = ghostHit;
+      if (ghost.state === "angry") ghostImg = ghostAngry;
+      ctx.drawImage(ghostImg, ghost.x, ghost.y, ghost.size, ghost.size);
+
+      bullets.forEach(b => {
+        ctx.fillStyle = "cyan";
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, 5, 0, 2 * Math.PI);
+        ctx.fill();
       });
     }
 
-    let gameStarted = false;
-    let countdown = 3;
-    const startMsg = document.getElementById("startMsg");
-
-    function runCountdown() {
-      if (countdown > 0) {
-        startMsg.textContent = countdown;
-        startMsg.style.opacity = 1;
-        setTimeout(() => {
-          startMsg.style.opacity = 0;
-          countdown--;
-          setTimeout(runCountdown, 600);
-        }, 600);
-      } else {
-        startMsg.style.display = "none";
-        gameStarted = true;
-      }
+    function loop() {
+      update();
+      draw();
+      requestAnimationFrame(loop);
     }
 
-    function gameLoop() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      drawObstacles();
-
-      if (gameStarted) {
-        movePlayer();
-        moveGhost();
-      }
-
-      drawPlayer();
-      drawGhost();
-
-      requestAnimationFrame(gameLoop);
-    }
-
-    runCountdown();
-    gameLoop();
-  </script>
-</body>
-  </html>
+    loop();
+  </script></body>
+</html>
