@@ -8,11 +8,14 @@
       padding: 0;
       background: #111;
       overflow: hidden;
+      height: 100%;
     }
     canvas {
       display: block;
       margin: auto;
       background: #222;
+      width: 100vw;
+      height: 100vh;
     }
     #joystick {
       position: absolute;
@@ -63,19 +66,21 @@
       height: 10px;
       background: lime;
     }
-    #startMsg {
+    #countdown {
       position: absolute;
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
       color: white;
-      font-size: 24px;
+      font-size: 72px;
       font-family: sans-serif;
+      opacity: 0;
+      transition: opacity 0.5s ease-in-out;
     }
   </style>
 </head>
 <body>
-  <canvas id="gameCanvas" width="800" height="600"></canvas>
+  <canvas id="gameCanvas" width="800" height="1422"></canvas>
   <div id="joystick"><div id="stick"></div></div>
   <div id="fireBtn"></div>
   <div id="ui">
@@ -84,88 +89,50 @@
     <div>Power</div>
     <div class="bar"><div id="powerBar" class="fill" style="width: 10%; background: cyan;"></div></div>
   </div>
-  <div id="startMsg">Game mulai dalam 3,2,1.</div>  <script>
+  <div id="countdown"></div>  <script>
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
+    const countdownEl = document.getElementById("countdown");
 
-    const player = { x: canvas.width / 2 - 20, y: canvas.height / 2 - 20, size: 40, speed: 2, power: 10 };
-    const ghost = { x: canvas.width / 2 + 50, y: canvas.height / 2 - 20, size: 40, speed: 1.2, hp: 50, state: "chase", hitTimer: 0 };
+    let count = 3;
+    function showCountdown() {
+      countdownEl.style.opacity = 1;
+      countdownEl.textContent = count;
+      setTimeout(() => {
+        countdownEl.style.opacity = 0;
+        if (count > 1) {
+          count--;
+          setTimeout(showCountdown, 500);
+        } else {
+          gameStarted = true;
+        }
+      }, 1000);
+    }
 
-    const obstacles = Array.from({length: 15}, () => ({
-      x: Math.random() * 750,
-      y: Math.random() * 550,
-      width: 50,
-      height: 50
-    }));
-
-    const powerBox = { x: 200, y: 300, size: 30 };
-    const velocity = { x: 0, y: 0 };
-    let bullets = [];
-
-    let gameStarted = false;
-    const startMsg = document.getElementById("startMsg");
-
-    setTimeout(() => {
-      gameStarted = true;
-      startMsg.style.display = 'none';
-    }, 3000);
+    showCountdown();
 
     const playerIdle = new Image(); playerIdle.src = "https://i.imgur.com/6o5lPHr.png";
     const playerRun = new Image(); playerRun.src = "https://i.imgur.com/X2Cw1D5.png";
-    const ghostChase = new Image(); ghostChase.src = "hantuapril1.png";
+    const ghostChase = new Image(); ghostChase.src = "gamep1.png";
     const ghostHit = new Image(); ghostHit.src = "https://i.imgur.com/L7x0kFZ.png";
     const ghostAngry = new Image(); ghostAngry.src = "https://i.imgur.com/mW6NIXL.png";
-    const blockImg = new Image(); blockImg.src = "https://i.imgur.com/fKCYvJ1.png";
     const powerBoxImg = new Image(); powerBoxImg.src = "https://i.imgur.com/3aFqFvl.png";
 
-    const joystick = document.getElementById("joystick");
-    const stick = document.getElementById("stick");
-    let dragging = false;
-    let origin = { x: 0, y: 0 };
-
-    joystick.addEventListener("touchstart", e => {
-      dragging = true;
-      const touch = e.touches[0];
-      origin.x = touch.clientX;
-      origin.y = touch.clientY;
-    });
-
-    joystick.addEventListener("touchmove", e => {
-      if (!dragging) return;
-      const touch = e.touches[0];
-      const dx = touch.clientX - origin.x;
-      const dy = touch.clientY - origin.y;
-
-      const maxDist = 40;
-      const dist = Math.min(maxDist, Math.hypot(dx, dy));
-      const angle = Math.atan2(dy, dx);
-
-      stick.style.left = 25 + dist * Math.cos(angle) + "px";
-      stick.style.top = 25 + dist * Math.sin(angle) + "px";
-
-      velocity.x = Math.cos(angle) * (dist / maxDist);
-      velocity.y = Math.sin(angle) * (dist / maxDist);
-    });
-
-    joystick.addEventListener("touchend", () => {
-      dragging = false;
-      stick.style.left = "25px";
-      stick.style.top = "25px";
-      velocity.x = 0;
-      velocity.y = 0;
-    });
-
-    document.getElementById("fireBtn").addEventListener("click", () => {
-      if (player.power >= 10) {
-        bullets.push({ x: player.x + 20, y: player.y + 20, dx: 3 * velocity.x, dy: 3 * velocity.y });
-        player.power -= 10;
-        document.getElementById("powerBar").style.width = player.power + "%";
-      }
-    });
+    const player = { x: 0, y: 0, size: 40, speed: 2, power: 10 };
+    const ghost = { x: 100, y: 100, size: 40, speed: 1.2, hp: 50, state: "chase", hitTimer: 0 };
+    const powerBox = { x: 200, y: 300, size: 30 };
+    const obstacles = Array.from({length: 10}, () => ({
+      x: Math.random() * 750,
+      y: Math.random() * 1300,
+      width: 50,
+      height: 50
+    }));
+    const velocity = { x: 0, y: 0 };
+    let bullets = [];
+    let gameStarted = false;
 
     function update() {
       if (!gameStarted) return;
-
       let nextX = player.x + velocity.x * player.speed;
       let nextY = player.y + velocity.y * player.speed;
 
@@ -217,7 +184,7 @@
           player.power += 10;
           document.getElementById("powerBar").style.width = player.power + "%";
           powerBox.x = Math.random() * 700;
-          powerBox.y = Math.random() * 500;
+          powerBox.y = Math.random() * 1300;
         }
       }
     }
@@ -226,7 +193,10 @@
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       ctx.drawImage(powerBoxImg, powerBox.x, powerBox.y, 30, 30);
-      obstacles.forEach(ob => ctx.drawImage(blockImg, ob.x, ob.y, ob.width, ob.height));
+      obstacles.forEach(ob => {
+        ctx.fillStyle = "#555";
+        ctx.fillRect(ob.x, ob.y, ob.width, ob.height);
+      });
 
       const playerImg = (velocity.x === 0 && velocity.y === 0) ? playerIdle : playerRun;
       ctx.drawImage(playerImg, player.x, player.y, player.size, player.size);
@@ -251,5 +221,50 @@
     }
 
     loop();
+
+    const joystick = document.getElementById("joystick");
+    const stick = document.getElementById("stick");
+    let dragging = false;
+    let origin = { x: 0, y: 0 };
+
+    joystick.addEventListener("touchstart", e => {
+      dragging = true;
+      const touch = e.touches[0];
+      origin.x = touch.clientX;
+      origin.y = touch.clientY;
+    });
+
+    joystick.addEventListener("touchmove", e => {
+      if (!dragging) return;
+      const touch = e.touches[0];
+      const dx = touch.clientX - origin.x;
+      const dy = touch.clientY - origin.y;
+
+      const maxDist = 40;
+      const dist = Math.min(maxDist, Math.hypot(dx, dy));
+      const angle = Math.atan2(dy, dx);
+
+      stick.style.left = 25 + dist * Math.cos(angle) + "px";
+      stick.style.top = 25 + dist * Math.sin(angle) + "px";
+
+      velocity.x = Math.cos(angle) * (dist / maxDist);
+      velocity.y = Math.sin(angle) * (dist / maxDist);
+    });
+
+    joystick.addEventListener("touchend", () => {
+      dragging = false;
+      stick.style.left = "25px";
+      stick.style.top = "25px";
+      velocity.x = 0;
+      velocity.y = 0;
+    });
+
+    document.getElementById("fireBtn").addEventListener("click", () => {
+      if (player.power >= 10) {
+        bullets.push({ x: player.x + 20, y: player.y + 20, dx: 3 * velocity.x, dy: 3 * velocity.y });
+        player.power -= 10;
+        document.getElementById("powerBar").style.width = player.power + "%";
+      }
+    });
   </script></body>
 </html>
