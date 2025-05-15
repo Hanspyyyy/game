@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Game Dikejar Hantu</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: black;
+    }
+    canvas {
+      display: block;
+      width: 100vw;
+      height: 56.25vw; /* 16:9 ratio */
+      max-height: 100vh;
+      max-width: 177.78vh;
+      background: #222;
+    }
+    #startMsg {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: white;
+      font-size: 64px;
+      font-family: sans-serif;
+      opacity: 1;
+      transition: opacity 0.5s ease-in-out;
+      z-index: 10;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas" width="960" height="540"></canvas>
+  <div id="startMsg">3</div>
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+
+    const player = { x: 0, y: 0, size: 40, speed: 2, power: 10 };
+    const ghost = { x: 80, y: 80, size: 40, speed: 1.2, hp: 50 };
+    const keys = {};
+
+    const obstacles = [
+      { x: 200, y: 100, width: 60, height: 200 },
+      { x: 400, y: 300, width: 60, height: 200 },
+      { x: 700, y: 50, width: 60, height: 200 },
+    ];
+
+    document.addEventListener("keydown", e => keys[e.key] = true);
+    document.addEventListener("keyup", e => keys[e.key] = false);
+
+    function rectsCollide(a, b) {
+      return (
+        a.x < b.x + b.width &&
+        a.x + a.size > b.x &&
+        a.y < b.y + b.height &&
+        a.y + a.size > b.y
+      );
+    }
+
+    function movePlayer() {
+      let dx = 0, dy = 0;
+      if (keys["ArrowUp"] || keys["w"]) dy -= player.speed;
+      if (keys["ArrowDown"] || keys["s"]) dy += player.speed;
+      if (keys["ArrowLeft"] || keys["a"]) dx -= player.speed;
+      if (keys["ArrowRight"] || keys["d"]) dx += player.speed;
+
+      const nextX = player.x + dx;
+      const nextY = player.y + dy;
+
+      const future = { x: nextX, y: nextY, size: player.size };
+      const blocked = obstacles.some(ob => rectsCollide(future, ob));
+      if (!blocked) {
+        player.x = nextX;
+        player.y = nextY;
+      }
+    }
+
+    function moveGhost() {
+      const dx = player.x - ghost.x;
+      const dy = player.y - ghost.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist > 1) {
+        ghost.x += (dx / dist) * ghost.speed;
+        ghost.y += (dy / dist) * ghost.speed;
+      }
+    }
+
+    function drawPlayer() {
+      ctx.fillStyle = "cyan";
+      ctx.fillRect(player.x, player.y, player.size, player.size);
+    }
+
+    function drawGhost() {
+      ctx.fillStyle = "red";
+      ctx.fillRect(ghost.x, ghost.y, ghost.size, ghost.size);
+    }
+
+    function drawObstacles() {
+      ctx.fillStyle = "#555";
+      obstacles.forEach(ob => {
+        ctx.fillRect(ob.x, ob.y, ob.width, ob.height);
+      });
+    }
+
+    let gameStarted = false;
+    let countdown = 3;
+    const startMsg = document.getElementById("startMsg");
+
+    function runCountdown() {
+      if (countdown > 0) {
+        startMsg.textContent = countdown;
+        startMsg.style.opacity = 1;
+        setTimeout(() => {
+          startMsg.style.opacity = 0;
+          countdown--;
+          setTimeout(runCountdown, 600);
+        }, 600);
+      } else {
+        startMsg.style.display = "none";
+        gameStarted = true;
+      }
+    }
+
+    function gameLoop() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawObstacles();
+
+      if (gameStarted) {
+        movePlayer();
+        moveGhost();
+      }
+
+      drawPlayer();
+      drawGhost();
+
+      requestAnimationFrame(gameLoop);
+    }
+
+    runCountdown();
+    gameLoop();
+  </script>
+</body>
+  </html>
