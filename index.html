@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -17,29 +18,29 @@
     }
     #joystick {
       position: absolute;
-      bottom: 120px;
+      bottom: 100px;
       left: 30px;
-      width: 120px;
-      height: 120px;
+      width: 150px;
+      height: 150px;
       background: rgba(255,255,255,0.1);
       border-radius: 50%;
       z-index: 2;
     }
     #stick {
       position: absolute;
-      top: 35px;
-      left: 35px;
-      width: 50px;
-      height: 50px;
+      top: 45px;
+      left: 45px;
+      width: 60px;
+      height: 60px;
       background: rgba(255,255,255,0.4);
       border-radius: 50%;
     }
     #fireBtn {
       position: absolute;
-      bottom: 130px;
+      bottom: 110px;
       right: 30px;
-      width: 70px;
-      height: 70px;
+      width: 90px;
+      height: 90px;
       background: red;
       border-radius: 50%;
       z-index: 2;
@@ -71,13 +72,6 @@
       color: white;
       font-size: 40px;
       font-family: sans-serif;
-      animation: countdown 3s steps(3, end) forwards;
-    }
-    @keyframes countdown {
-      0%   { content: "3"; opacity: 1; }
-      33%  { content: "2"; opacity: 1; }
-      66%  { content: "1"; opacity: 1; }
-      100% { opacity: 0; }
     }
   </style>
 </head>
@@ -97,27 +91,44 @@
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
 
-    const player = { x: canvas.width / 2 - 20, y: canvas.height / 2 - 20, size: 40, speed: 2, power: 10 };
-    const ghost = { x: canvas.width / 2 + 50, y: canvas.height / 2 - 20, size: 40, speed: 1.2, hp: 50, state: "chase", hitTimer: 0 };
+    const player = { x: canvas.width / 2 - 20, y: 100, size: 40, speed: 2, power: 10 };
+    const ghost = { x: canvas.width / 2 - 20, y: 300, size: 40, speed: 1.2, hp: 50, state: "chase", hitTimer: 0 };
 
-    const obstacles = Array.from({length: 12}, () => ({
-      x: Math.random() * 300,
-      y: Math.random() * 580,
-      width: 30,
-      height: 30
-    }));
+    const obstacles = [];
+    const cols = 4;
+    const rows = 3;
+    for (let i = 0; i < cols; i++) {
+      for (let j = 0; j < rows; j++) {
+        if (Math.random() < 0.7) {
+          obstacles.push({
+            x: 30 + i * 80,
+            y: 150 + j * 120,
+            width: 30,
+            height: 30
+          });
+        }
+      }
+    }
 
-    const powerBox = { x: 100, y: 200, size: 30 };
+    const powerBox = { x: 150, y: 400, size: 30 };
     const velocity = { x: 0, y: 0 };
     let bullets = [];
 
     let gameStarted = false;
     const startMsg = document.getElementById("startMsg");
+    let countdown = 3;
+    startMsg.textContent = countdown;
 
-    setTimeout(() => {
-      gameStarted = true;
-      startMsg.style.display = 'none';
-    }, 3000);
+    const countdownInterval = setInterval(() => {
+      countdown--;
+      if (countdown === 0) {
+        startMsg.style.display = "none";
+        gameStarted = true;
+        clearInterval(countdownInterval);
+      } else {
+        startMsg.textContent = countdown;
+      }
+    }, 1000);
 
     const playerIdle = new Image(), playerRun = new Image();
     const ghostChase = new Image(), ghostHit = new Image(), ghostAngry = new Image();
@@ -148,12 +159,12 @@
       const dx = touch.clientX - origin.x;
       const dy = touch.clientY - origin.y;
 
-      const maxDist = 40;
+      const maxDist = 50;
       const dist = Math.min(maxDist, Math.hypot(dx, dy));
       const angle = Math.atan2(dy, dx);
 
-      stick.style.left = 35 + dist * Math.cos(angle) + "px";
-      stick.style.top = 35 + dist * Math.sin(angle) + "px";
+      stick.style.left = 45 + dist * Math.cos(angle) + "px";
+      stick.style.top = 45 + dist * Math.sin(angle) + "px";
 
       velocity.x = Math.cos(angle) * (dist / maxDist);
       velocity.y = Math.sin(angle) * (dist / maxDist);
@@ -161,8 +172,8 @@
 
     joystick.addEventListener("touchend", () => {
       dragging = false;
-      stick.style.left = "35px";
-      stick.style.top = "35px";
+      stick.style.left = "45px";
+      stick.style.top = "45px";
       velocity.x = 0;
       velocity.y = 0;
     });
@@ -195,14 +206,13 @@
         ghost.hitTimer--;
         ghost.state = "hit";
         if (ghost.hitTimer === 0) ghost.state = "angry";
-        return;
+      } else {
+        let dx = player.x - ghost.x;
+        let dy = player.y - ghost.y;
+        let dist = Math.hypot(dx, dy);
+        ghost.x += (dx / dist) * ghost.speed;
+        ghost.y += (dy / dist) * ghost.speed;
       }
-
-      let dx = player.x - ghost.x;
-      let dy = player.y - ghost.y;
-      let dist = Math.hypot(dx, dy);
-      ghost.x += (dx / dist) * ghost.speed;
-      ghost.y += (dy / dist) * ghost.speed;
 
       if (Math.abs(player.x - ghost.x) < 30 && Math.abs(player.y - ghost.y) < 30) {
         alert("Kena hantu!");
@@ -225,8 +235,8 @@
         if (player.power < 100) {
           player.power += 10;
           document.getElementById("powerBar").style.width = player.power + "%";
-          powerBox.x = Math.random() * 300;
-          powerBox.y = Math.random() * 600;
+          powerBox.x = 30 + Math.random() * 280;
+          powerBox.y = 100 + Math.random() * 500;
         }
       }
     }
@@ -269,4 +279,4 @@
     loop();
   </script>
 </body>
-  </html>
+</html
