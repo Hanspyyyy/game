@@ -1,5 +1,4 @@
-<!DOCTYPE html>
-<html lang="en">
+<!DOCTYPE html><html lang="en">
 <head>
   <meta charset="UTF-8">
   <title>Game Dikejar Hantu</title>
@@ -14,7 +13,7 @@
     canvas {
       display: block;
       margin: auto;
-      background: #222;
+      background: white;
     }
     #joystick {
       position: absolute;
@@ -44,7 +43,7 @@
       background: red;
       border-radius: 50%;
       z-index: 2;
-      border: 3px solid white;
+      border: 3px solid black;
     }
     #ui {
       position: absolute;
@@ -57,7 +56,7 @@
     .bar {
       width: 100px;
       height: 10px;
-      background: #444;
+      background: black;
       margin-bottom: 5px;
     }
     .fill {
@@ -69,214 +68,221 @@
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      color: white;
+      color: black;
       font-size: 40px;
       font-family: sans-serif;
     }
   </style>
 </head>
 <body>
-  <canvas id="gameCanvas" width="360" height="640"></canvas>
-  <div id="joystick"><div id="stick"></div></div>
-  <div id="fireBtn"></div>
-  <div id="ui">
-    <div>Hantu HP</div>
-    <div class="bar"><div id="ghostHp" class="fill" style="width: 100%;"></div></div>
-    <div>Power</div>
-    <div class="bar"><div id="powerBar" class="fill" style="width: 10%; background: cyan;"></div></div>
-  </div>
-  <div id="startMsg">3</div>
+<canvas id="gameCanvas" width="360" height="640"></canvas>
+<div id="joystick"><div id="stick"></div></div>
+<div id="fireBtn"></div>
+<div id="ui">
+  <div>Hantu HP</div>
+  <div class="bar"><div id="ghostHp" class="fill" style="width: 100%;"></div></div>
+  <div>Power</div>
+  <div class="bar"><div id="powerBar" class="fill" style="width: 10%; background: cyan;"></div></div>
+</div>
+<div id="startMsg">3</div>
 
-  <script>
-    const canvas = document.getElementById("gameCanvas");
-    const ctx = canvas.getContext("2d");
+<script>
+  const canvas = document.getElementById("gameCanvas");
+  const ctx = canvas.getContext("2d");
 
-    const player = { x: canvas.width / 2 - 20, y: 100, size: 40, speed: 2, power: 10 };
-    const ghost = { x: canvas.width / 2 - 20, y: 300, size: 40, speed: 1.2, hp: 50, state: "chase", hitTimer: 0 };
+  const player = { x: canvas.width / 2 - 20, y: 100, size: 40, speed: 2, power: 10 };
+  const ghost = { x: canvas.width / 2 - 20, y: 300, size: 40, speed: 1.2, hp: 50, state: "chase", hitTimer: 0 };
 
-    const obstacles = [];
-    const cols = 4;
-    const rows = 3;
-    for (let i = 0; i < cols; i++) {
-      for (let j = 0; j < rows; j++) {
-        if (Math.random() < 0.7) {
-          obstacles.push({
-            x: 30 + i * 80,
-            y: 150 + j * 120,
-            width: 30,
-            height: 30
-          });
-        }
+  const obstacles = [
+    { x: 60, y: 200, width: 150, height: 20 },
+    { x: 10, y: 350, width: 20, height: 100 },
+    { x: 250, y: 250, width: 20, height: 120 },
+    { x: 100, y: 450, width: 120, height: 20 },
+    { x: 200, y: 550, width: 100, height: 20 }
+  ];
+
+  const powerBox = { x: 150, y: 400, size: 30 };
+  const velocity = { x: 0, y: 0 };
+  let bullets = [];
+
+  let gameStarted = false;
+  const startMsg = document.getElementById("startMsg");
+  let countdown = 3;
+  startMsg.textContent = countdown;
+
+  const countdownInterval = setInterval(() => {
+    countdown--;
+    if (countdown === 0) {
+      startMsg.style.display = "none";
+      gameStarted = true;
+      clearInterval(countdownInterval);
+    } else {
+      startMsg.textContent = countdown;
+    }
+  }, 1000);
+
+  const playerIdle = new Image(), playerRun = new Image();
+  const ghostChase = new Image(), ghostHit = new Image(), ghostAngry = new Image();
+  const powerBoxImg = new Image();
+
+  playerIdle.src = "https://i.imgur.com/6o5lPHr.png";
+  playerRun.src = "https://i.imgur.com/X2Cw1D5.png";
+  ghostChase.src = "hantuapril1.png";
+  ghostHit.src = "terkenahit.png";
+  ghostAngry.src = "https://i.imgur.com/mW6NIXL.png";
+  powerBoxImg.src = "bok.png";
+
+  const joystick = document.getElementById("joystick");
+  const stick = document.getElementById("stick");
+  let dragging = false;
+  let origin = { x: 0, y: 0 };
+
+  joystick.addEventListener("touchstart", e => {
+    dragging = true;
+    const touch = e.touches[0];
+    origin.x = touch.clientX;
+    origin.y = touch.clientY;
+  });
+
+  joystick.addEventListener("touchmove", e => {
+    if (!dragging) return;
+    const touch = e.touches[0];
+    const dx = touch.clientX - origin.x;
+    const dy = touch.clientY - origin.y;
+
+    const maxDist = 50;
+    const dist = Math.min(maxDist, Math.hypot(dx, dy));
+    const angle = Math.atan2(dy, dx);
+
+    stick.style.left = 45 + dist * Math.cos(angle) + "px";
+    stick.style.top = 45 + dist * Math.sin(angle) + "px";
+
+    velocity.x = Math.cos(angle) * (dist / maxDist);
+    velocity.y = Math.sin(angle) * (dist / maxDist);
+  });
+
+  joystick.addEventListener("touchend", () => {
+    dragging = false;
+    stick.style.left = "45px";
+    stick.style.top = "45px";
+    velocity.x = 0;
+    velocity.y = 0;
+  });
+
+  document.getElementById("fireBtn").addEventListener("click", () => {
+    if (player.power >= 10) {
+      const dx = ghost.x + ghost.size / 2 - (player.x + player.size / 2);
+      const dy = ghost.y + ghost.size / 2 - (player.y + player.size / 2);
+      const len = Math.hypot(dx, dy);
+      bullets.push({
+        x: player.x + player.size / 2,
+        y: player.y + player.size / 2,
+        dx: (dx / len) * 4,
+        dy: (dy / len) * 4
+      });
+      player.power -= 10;
+      document.getElementById("powerBar").style.width = player.power + "%";
+    }
+  });
+
+  function isBlocked(x, y, size) {
+    return obstacles.some(ob =>
+      x < ob.x + ob.width && x + size > ob.x &&
+      y < ob.y + ob.height && y + size > ob.y
+    );
+  }
+
+  function update() {
+    if (!gameStarted) return;
+
+    let nextX = player.x + velocity.x * player.speed;
+    let nextY = player.y + velocity.y * player.speed;
+    if (!isBlocked(nextX, nextY, player.size)) {
+      player.x = nextX;
+      player.y = nextY;
+    }
+
+    if (ghost.hitTimer > 0) {
+      ghost.hitTimer--;
+      ghost.state = "hit";
+      if (ghost.hitTimer === 0) ghost.state = ghost.hp <= 20 ? "angry" : "chase";
+    } else {
+      const dx = player.x - ghost.x;
+      const dy = player.y - ghost.y;
+      const len = Math.hypot(dx, dy);
+      const vx = (dx / len) * ghost.speed;
+      const vy = (dy / len) * ghost.speed;
+      const nextGX = ghost.x + vx;
+      const nextGY = ghost.y + vy;
+      if (!isBlocked(nextGX, nextGY, ghost.size)) {
+        ghost.x = nextGX;
+        ghost.y = nextGY;
       }
     }
 
-    const powerBox = { x: 150, y: 400, size: 30 };
-    const velocity = { x: 0, y: 0 };
-    let bullets = [];
+    if (Math.abs(player.x - ghost.x) < 30 && Math.abs(player.y - ghost.y) < 30) {
+      alert("Kena hantu!");
+      location.reload();
+    }
 
-    let gameStarted = false;
-    const startMsg = document.getElementById("startMsg");
-    let countdown = 3;
-    startMsg.textContent = countdown;
-
-    const countdownInterval = setInterval(() => {
-      countdown--;
-      if (countdown === 0) {
-        startMsg.style.display = "none";
-        gameStarted = true;
-        clearInterval(countdownInterval);
-      } else {
-        startMsg.textContent = countdown;
+    bullets.forEach((b, i) => {
+      b.x += b.dx;
+      b.y += b.dy;
+      if (b.x > ghost.x && b.x < ghost.x + ghost.size &&
+          b.y > ghost.y && b.y < ghost.y + ghost.size) {
+        ghost.hp -= 10;
+        document.getElementById("ghostHp").style.width = ghost.hp + "%";
+        bullets.splice(i, 1);
+        ghost.hitTimer = 60;
       }
-    }, 1000);
-
-    const playerIdle = new Image(), playerRun = new Image();
-    const ghostChase = new Image(), ghostHit = new Image(), ghostAngry = new Image();
-    const powerBoxImg = new Image();
-
-    playerIdle.src = "https://i.imgur.com/6o5lPHr.png";
-    playerRun.src = "https://i.imgur.com/X2Cw1D5.png";
-    ghostChase.src = "hantuapril1.png";
-    ghostHit.src = "https://i.imgur.com/L7x0kFZ.png";
-    ghostAngry.src = "https://i.imgur.com/mW6NIXL.png";
-    powerBoxImg.src = "https://i.imgur.com/3aFqFvl.png";
-
-    const joystick = document.getElementById("joystick");
-    const stick = document.getElementById("stick");
-    let dragging = false;
-    let origin = { x: 0, y: 0 };
-
-    joystick.addEventListener("touchstart", e => {
-      dragging = true;
-      const touch = e.touches[0];
-      origin.x = touch.clientX;
-      origin.y = touch.clientY;
     });
 
-    joystick.addEventListener("touchmove", e => {
-      if (!dragging) return;
-      const touch = e.touches[0];
-      const dx = touch.clientX - origin.x;
-      const dy = touch.clientY - origin.y;
-
-      const maxDist = 50;
-      const dist = Math.min(maxDist, Math.hypot(dx, dy));
-      const angle = Math.atan2(dy, dx);
-
-      stick.style.left = 45 + dist * Math.cos(angle) + "px";
-      stick.style.top = 45 + dist * Math.sin(angle) + "px";
-
-      velocity.x = Math.cos(angle) * (dist / maxDist);
-      velocity.y = Math.sin(angle) * (dist / maxDist);
-    });
-
-    joystick.addEventListener("touchend", () => {
-      dragging = false;
-      stick.style.left = "45px";
-      stick.style.top = "45px";
-      velocity.x = 0;
-      velocity.y = 0;
-    });
-
-    document.getElementById("fireBtn").addEventListener("click", () => {
-      if (player.power >= 10) {
-        bullets.push({ x: player.x + 20, y: player.y + 20, dx: 3 * velocity.x, dy: 3 * velocity.y });
-        player.power -= 10;
+    if (Math.abs(player.x - powerBox.x) < 30 && Math.abs(player.y - powerBox.y) < 30) {
+      if (player.power < 100) {
+        player.power += 10;
         document.getElementById("powerBar").style.width = player.power + "%";
+        powerBox.x = 30 + Math.random() * 280;
+        powerBox.y = 100 + Math.random() * 500;
       }
+    }
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    ctx.drawImage(powerBoxImg, powerBox.x, powerBox.y, 30, 30);
+    obstacles.forEach(ob => {
+      ctx.fillStyle = "#555";
+      ctx.fillRect(ob.x, ob.y, ob.width, ob.height);
     });
 
-    function update() {
-      if (!gameStarted) return;
-
-      let nextX = player.x + velocity.x * player.speed;
-      let nextY = player.y + velocity.y * player.speed;
-
-      let blocked = obstacles.some(ob =>
-        nextX < ob.x + ob.width && nextX + player.size > ob.x &&
-        nextY < ob.y + ob.height && nextY + player.size > ob.y
-      );
-
-      if (!blocked) {
-        player.x = nextX;
-        player.y = nextY;
-      }
-
-      if (ghost.hitTimer > 0) {
-        ghost.hitTimer--;
-        ghost.state = "hit";
-        if (ghost.hitTimer === 0) ghost.state = "angry";
-      } else {
-        let dx = player.x - ghost.x;
-        let dy = player.y - ghost.y;
-        let dist = Math.hypot(dx, dy);
-        ghost.x += (dx / dist) * ghost.speed;
-        ghost.y += (dy / dist) * ghost.speed;
-      }
-
-      if (Math.abs(player.x - ghost.x) < 30 && Math.abs(player.y - ghost.y) < 30) {
-        alert("Kena hantu!");
-        location.reload();
-      }
-
-      bullets.forEach((b, i) => {
-        b.x += b.dx;
-        b.y += b.dy;
-        if (b.x > ghost.x && b.x < ghost.x + ghost.size &&
-            b.y > ghost.y && b.y < ghost.y + ghost.size) {
-          ghost.hp -= 10;
-          document.getElementById("ghostHp").style.width = ghost.hp + "%";
-          bullets.splice(i, 1);
-          ghost.hitTimer = 60;
-        }
-      });
-
-      if (Math.abs(player.x - powerBox.x) < 30 && Math.abs(player.y - powerBox.y) < 30) {
-        if (player.power < 100) {
-          player.power += 10;
-          document.getElementById("powerBar").style.width = player.power + "%";
-          powerBox.x = 30 + Math.random() * 280;
-          powerBox.y = 100 + Math.random() * 500;
-        }
-      }
+    const playerImg = (velocity.x === 0 && velocity.y === 0) ? playerIdle : playerRun;
+    if (playerImg.complete && playerImg.naturalWidth > 0) {
+      ctx.drawImage(playerImg, player.x, player.y, player.size, player.size);
     }
 
-    function draw() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      ctx.drawImage(powerBoxImg, powerBox.x, powerBox.y, 30, 30);
-      obstacles.forEach(ob => {
-        ctx.fillStyle = "#555";
-        ctx.fillRect(ob.x, ob.y, ob.width, ob.height);
-      });
-
-      const playerImg = (velocity.x === 0 && velocity.y === 0) ? playerIdle : playerRun;
-      if (playerImg.complete) {
-        ctx.drawImage(playerImg, player.x, player.y, player.size, player.size);
-      }
-
-      let ghostImg = ghostChase;
-      if (ghost.state === "hit") ghostImg = ghostHit;
-      if (ghost.state === "angry") ghostImg = ghostAngry;
-      if (ghostImg.complete) {
-        ctx.drawImage(ghostImg, ghost.x, ghost.y, ghost.size, ghost.size);
-      }
-
-      bullets.forEach(b => {
-        ctx.fillStyle = "cyan";
-        ctx.beginPath();
-        ctx.arc(b.x, b.y, 5, 0, 2 * Math.PI);
-        ctx.fill();
-      });
+    let ghostImg = ghostChase;
+    if (ghost.state === "hit") ghostImg = ghostHit;
+    if (ghost.state === "angry") ghostImg = ghostAngry;
+    if (ghostImg.complete && ghostImg.naturalWidth > 0) {
+      ctx.drawImage(ghostImg, ghost.x, ghost.y, ghost.size, ghost.size);
     }
 
-    function loop() {
-      update();
-      draw();
-      requestAnimationFrame(loop);
-    }
+    bullets.forEach(b => {
+      ctx.fillStyle = "cyan";
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, 5, 0, 2 * Math.PI);
+      ctx.fill();
+    });
+  }
 
-    loop();
-  </script>
+  function loop() {
+    update();
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  loop();
+</script>
 </body>
-</html
+</html>
