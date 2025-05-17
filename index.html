@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <title>Game Dikejar Hantu</title>
@@ -6,14 +6,14 @@
     html, body {
       margin: 0;
       padding: 0;
-      background: #111;
+      background: white;
       overflow: hidden;
       touch-action: none;
     }
     canvas {
       display: block;
       margin: auto;
-      background: white;
+      background: #white;
     }
     #joystick {
       position: absolute;
@@ -21,7 +21,7 @@
       left: 30px;
       width: 150px;
       height: 150px;
-      background: rgba(255,255,255,0.1);
+      background: rgba(0,0,0,0.9);
       border-radius: 50%;
       z-index: 2;
     }
@@ -43,7 +43,7 @@
       background: red;
       border-radius: 50%;
       z-index: 2;
-      border: 3px solid black;
+      border: 3px solid white;
     }
     #ui {
       position: absolute;
@@ -56,7 +56,7 @@
     .bar {
       width: 100px;
       height: 10px;
-      background: black;
+      background: #444;
       margin-bottom: 5px;
     }
     .fill {
@@ -68,7 +68,7 @@
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      color: black;
+      color: white;
       font-size: 40px;
       font-family: sans-serif;
     }
@@ -90,8 +90,8 @@
   const canvas = document.getElementById("gameCanvas");
   const ctx = canvas.getContext("2d");
 
-  const player = { x: canvas.width / 2 - 20, y: 100, size: 40, speed: 2, power: 10 };
-  const ghost = { x: canvas.width / 2 - 20, y: 300, size: 40, speed: 1.2, hp: 50, state: "chase", hitTimer: 0 };
+  const player = { x: canvas.width / 2 - 20, y: 100, size: 40, speed: 2, power: 10, dir: 1 };
+  const ghost = { x: canvas.width / 2 - 20, y: 300, size: 40, speed: 1.2, hp: 50, state: "chase", hitTimer: 0, dir: 1 };
 
   const obstacles = [
     { x: 60, y: 200, width: 150, height: 20 },
@@ -128,9 +128,9 @@
   playerIdle.src = "https://i.imgur.com/6o5lPHr.png";
   playerRun.src = "https://i.imgur.com/X2Cw1D5.png";
   ghostChase.src = "hantuapril1.png";
-  ghostHit.src = "terkenahit.png";
+  ghostHit.src = "https://i.imgur.com/L7x0kFZ.png";
   ghostAngry.src = "https://i.imgur.com/mW6NIXL.png";
-  powerBoxImg.src = "bok.png";
+  powerBoxImg.src = "";
 
   const joystick = document.getElementById("joystick");
   const stick = document.getElementById("stick");
@@ -198,6 +198,7 @@
     let nextX = player.x + velocity.x * player.speed;
     let nextY = player.y + velocity.y * player.speed;
     if (!isBlocked(nextX, nextY, player.size)) {
+      if (velocity.x !== 0) player.dir = velocity.x > 0 ? 1 : -1;
       player.x = nextX;
       player.y = nextY;
     }
@@ -208,6 +209,7 @@
       if (ghost.hitTimer === 0) ghost.state = ghost.hp <= 20 ? "angry" : "chase";
     } else {
       const dx = player.x - ghost.x;
+      if (dx !== 0) ghost.dir = dx > 0 ? 1 : -1;
       const dy = player.y - ghost.y;
       const len = Math.hypot(dx, dy);
       const vx = (dx / len) * ghost.speed;
@@ -258,14 +260,32 @@
 
     const playerImg = (velocity.x === 0 && velocity.y === 0) ? playerIdle : playerRun;
     if (playerImg.complete && playerImg.naturalWidth > 0) {
-      ctx.drawImage(playerImg, player.x, player.y, player.size, player.size);
+      ctx.save();
+      if (player.dir === -1) {
+        ctx.translate(player.x + player.size, player.y);
+        ctx.scale(-1, 1);
+        ctx.drawImage(playerImg, 0, 0, player.size, player.size);
+      } else {
+        ctx.translate(player.x, player.y);
+        ctx.drawImage(playerImg, 0, 0, player.size, player.size);
+      }
+      ctx.restore();
     }
 
     let ghostImg = ghostChase;
     if (ghost.state === "hit") ghostImg = ghostHit;
     if (ghost.state === "angry") ghostImg = ghostAngry;
     if (ghostImg.complete && ghostImg.naturalWidth > 0) {
-      ctx.drawImage(ghostImg, ghost.x, ghost.y, ghost.size, ghost.size);
+      ctx.save();
+      if (ghost.dir === -1) {
+        ctx.translate(ghost.x + ghost.size, ghost.y);
+        ctx.scale(-1, 1);
+        ctx.drawImage(ghostImg, 0, 0, ghost.size, ghost.size);
+      } else {
+        ctx.translate(ghost.x, ghost.y);
+        ctx.drawImage(ghostImg, 0, 0, ghost.size, ghost.size);
+      }
+      ctx.restore();
     }
 
     bullets.forEach(b => {
@@ -285,4 +305,4 @@
   loop();
 </script>
 </body>
-</html>
+  </html>
